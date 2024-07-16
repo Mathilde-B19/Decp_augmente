@@ -2,7 +2,6 @@ import nettoyage
 import logging.config
 import argparse
 import utils
-import enrichissement2
 import data_management
 
 logger = logging.getLogger("main")
@@ -21,6 +20,7 @@ logger.addHandler(fh)
 args = utils.parse_args()
 
 def main(data_format:str = '2022'):
+    
     logger.info(f"Téléchargement des fichiers de données")
     data_management.main()
     logger.info("Fichiers mis à jour dans le dossier data")

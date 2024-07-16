@@ -84,7 +84,7 @@ def upload_on_s3(local_credentials="saagie_cred.json"):
 
 def main():
     load_files_and_unzip(urls)
-    #upload_on_s3()
+    upload_on_s3()
 
 
 if __name__ == "__main__":

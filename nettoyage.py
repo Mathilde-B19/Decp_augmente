@@ -19,6 +19,8 @@ from stdnum.fr import siren
 from stdnum.util import clean
 
 PATTERN_DATE = r'^20[0-9]{2}-[0-1]{1}[0-9]{1}-[0-3]{1}[0-9]{1}$'
+light_errors = []
+
 
 logger = logging.getLogger("main.nettoyage2")
 logger.setLevel(logging.DEBUG)
@@ -62,7 +64,7 @@ def main(data_format:str = '2022'):
     #    print("Load file from S3 repositary")
     if not args.local:
         utils.download_file("data/"+json_source,"data/"+json_source)
-        utils.download_file("data/cpv_2008_ver_2013.xlsx","data/cpv_2008_ver_2013.xlsx")
+        utils.download_file("data/cpv.xls","data/cpv.xls")
 
     with open(os.path.join(path_to_data, json_source), 'rb') as f:
         # c'est long de charger le json, je conseille de le faire une fois et de sauvegarder le df en pickle pour les tests
@@ -75,6 +77,7 @@ def main(data_format:str = '2022'):
 
     logger.info("Nettoyage des données")
     manage_data_quality(df,data_format)
+
 
 @compute_execution_time
 def manage_data_quality(df: pd.DataFrame,data_format:str):
@@ -104,6 +107,7 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
     # séparation des marchés et des concessions, car traitement différent
     df_marche = None
     df_concession = None
+
     if data_format=='2019':
         df_marche = df.loc[~df['nature'].str.contains('concession', case=False, na=False)]
 
@@ -287,14 +291,21 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         df["montant"] = df["montant"].astype(str)
         if data_format=='2022':
             df["dureeMois"] = df["dureeMois"].astype(str)
-            df["origineUE"] = df["origineUE"].astype(str)
+            
             df["marcheInnovant"] = df["marcheInnovant"].astype(str)
             df["attributionAvance"] = df["attributionAvance"].astype(str)
             df["sousTraitanceDeclaree"] = df["sousTraitanceDeclaree"].astype(str)
-            df["origineFrance"] = df["origineFrance"].astype(str)
-            df.astype({"dureeMois": 'str', "origineUE": 'str', "origineFrance": 'str'}) 
+           
+            
             df["offresRecues"] = df["offresRecues"].fillna(0).astype(int).astype(str)
             df["tauxAvance"] = df["tauxAvance"].astype(str)
+            if 'origineUE' in df.columns:
+                df["origineUE"] = df["origineUE"].astype(str)
+            if 'origineFrance' in df.columns:
+                 df["origineFrance"] = df["origineFrance"].astype(str)
+            if ('origineUE' in df.columns) and ('origineFrance' in df.columns) :
+                 df.astype({"dureeMois": 'str', "origineUE": 'str', "origineFrance": 'str'}) 
+
             if 'idActeSousTraitance' in df.columns:
                 df["idActeSousTraitance"] = pd.to_numeric(df["idActeSousTraitance"], downcast='signed')
             if 'lieuExecution.code' in df.columns:
@@ -572,7 +583,7 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
     df_marche_, df_marche_badlines_ = check_siret_ext(df_marche_, df_marche_badlines_, "titulaire",'IREP')
     df_marche_, df_marche_badlines_ = check_siret_ext(df_marche_, df_marche_badlines_, "titulaire",'HORS-UE')
 
-    df_cpv = pd.read_excel("data/cpv_2008_ver_2013.xls", engine="xlrd")  #engine=openpyxl
+    df_cpv = pd.read_excel("data/cpv.xlsx", engine="openpyxl")  #engine=openpyxl   xlrd
 
     df_marche_ = marche_cpv(df_marche_, df_cpv, data_format)
     
