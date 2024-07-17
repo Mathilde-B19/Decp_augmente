@@ -164,14 +164,14 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
         print("Aucun marché traité")
 
     # save data to csv files
-    if not df_concession.empty:
-        df_concession.to_csv(os.path.join(conf_data["path_to_data"], "concession_"+data_format+".csv"), index=False)
-    if not df_marche.empty:
-        df_marche.to_csv(os.path.join(conf_data["path_to_data"], "marche_"+data_format+".csv"), index=False)
-    if not df_marche_badlines.empty:
-        df_marche_badlines.to_csv(os.path.join(conf_data["path_to_data"], "marche_exclu_"+data_format+".csv"), index=False)
-    if not df_concession_badlines.empty:
-        df_concession_badlines.to_csv(os.path.join(conf_data["path_to_data"], "concession_exclu_"+data_format+".csv"), index=False)
+    # if not df_concession.empty:
+    df_concession.to_csv(os.path.join(conf_data["path_to_data"], "concession_"+data_format+".csv"), index=False, header=True)
+    # if not df_marche.empty:
+    df_marche.to_csv(os.path.join(conf_data["path_to_data"], "marche_"+data_format+".csv"), index=False, header=True)
+    # if not df_marche_badlines.empty:
+    df_marche_badlines.to_csv(os.path.join(conf_data["path_to_data"], "marche_exclu_"+data_format+".csv"), index=False,  header=True)
+    # if not df_concession_badlines.empty:
+    df_concession_badlines.to_csv(os.path.join(conf_data["path_to_data"], "concession_exclu_"+data_format+".csv"), index=False,  header=True)
 
     # Concaténation des dataframes pour l'enrigissement (re-séparation après)
     df = pd.concat([df_concession, df_marche])
@@ -583,7 +583,7 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
     df_marche_, df_marche_badlines_ = check_siret_ext(df_marche_, df_marche_badlines_, "titulaire",'IREP')
     df_marche_, df_marche_badlines_ = check_siret_ext(df_marche_, df_marche_badlines_, "titulaire",'HORS-UE')
 
-    df_cpv = pd.read_excel("data/cpv.xlsx", engine="openpyxl")  #engine=openpyxl   xlrd
+    df_cpv = pd.read_excel("data/cpv.xls", engine="xlrd")  #engine=openpyxl   xlrd
 
     df_marche_ = marche_cpv(df_marche_, df_cpv, data_format)
     
