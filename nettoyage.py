@@ -162,16 +162,16 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
     else:
         #df_marche_badlines = df_marche.empty
         print("Aucun marché traité")
-
+   
+    # Formater la date sous le format "YYYY-MM-DD"
+    maintenant = datetime.now() 
+    date = maintenant.strftime("%Y-%m-%d")
+   
     # save data to csv files
-    # if not df_concession.empty:
-    df_concession.to_csv(os.path.join(conf_data["path_to_data"], "concession_"+data_format+".csv"), index=False, header=True)
-    # if not df_marche.empty:
-    df_marche.to_csv(os.path.join(conf_data["path_to_data"], "marche_"+data_format+".csv"), index=False, header=True)
-    # if not df_marche_badlines.empty:
-    df_marche_badlines.to_csv(os.path.join(conf_data["path_to_data"], "marche_exclu_"+data_format+".csv"), index=False,  header=True)
-    # if not df_concession_badlines.empty:
-    df_concession_badlines.to_csv(os.path.join(conf_data["path_to_data"], "concession_exclu_"+data_format+".csv"), index=False,  header=True)
+    df_concession.to_csv(os.path.join(conf_data["path_to_data"], f'{date}-concession-{data_format}.csv'), index=False, header=True)
+    df_marche.to_csv(os.path.join(conf_data["path_to_data"], f'{date}-marche-{data_format}.csv'), index=False, header=True)
+    df_marche_badlines.to_csv(os.path.join(conf_data["path_to_data"], f'{date}-marche-exclu-{data_format}.csv'), index=False,  header=True)
+    df_concession_badlines.to_csv(os.path.join(conf_data["path_to_data"], f'{date}-concession-exclu-{data_format}.csv'), index=False,  header=True)
 
     # Concaténation des dataframes pour l'enrigissement (re-séparation après)
     df = pd.concat([df_concession, df_marche])
