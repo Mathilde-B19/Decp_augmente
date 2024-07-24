@@ -31,7 +31,7 @@ def load_files_and_unzip(urls):
     """
     with open("metadata/metadata.json", 'r+',  encoding='utf8') as f:
             metadata = json.load(f)
-    data_exists = os.path.exists(data_path)
+    data_exists = os.path.exists(data_path) #Creation du dossier data si inexitant
     if not data_exists:
         os.mkdir(data_path)
     # Téléchargements des fichiers
@@ -57,8 +57,6 @@ def load_files_and_unzip(urls):
                 logger.info(f"{url}{metadata[url]['format']} téléchargé")
             except requests.exceptions.RequestException as e:
                 logger.error(f"Erreur lors du téléchargement de {url}: {e}")
-
-            logger.info(f"{url}{metadata[url]["format"]} téléchargé")
         else : 
             logger.info(f"Le fichier {url} est déjâ présent, on ne le retélécharge pas")
         cpt = cpt+1

@@ -72,12 +72,12 @@ def main(data_format:str = '2022'):
 
     if args.test:
         #m = math.ceil(len(df.index)/3)
-        df = df.sample(n=len(df.index), random_state=1)
+        df = df.sample(n=len(df.index), random_state=1)   #on récupère tous les marchés et concessions
         logger.info("Mode test activé")
 
     logger.info("Nettoyage des données")
     manage_data_quality(df,data_format)
-
+ 
 
 @compute_execution_time
 def manage_data_quality(df: pd.DataFrame,data_format:str):
@@ -202,6 +202,111 @@ def reorder_columns(dfb:pd.DataFrame):
             newColumnsTitle.append(col)
     return dfb.reindex(columns=newColumnsTitle)
 
+def order_columns_marches(df: pd.DataFrame):
+    """
+    La fonction ordonne les colonnes d'une marché
+    du dataframe dans l'orde indiqué de la liste.
+    """
+    liste_col_ordonnes = [
+    "titulaire_id_1",
+    "titulaire_typeIdentifiant_1",
+    "titulaire_id_2",
+    "titulaire_typeIdentifiant_2",
+    "titulaire_id_3",
+    "titulaire_typeIdentifiant_3",
+    "id",
+    "nature",
+    "objet",
+    "codeCPV",
+    "procedure",
+    "dureeMois",
+    "dateNotification",
+    "datePublicationDonnees",
+    "montant",
+    "formePrix",
+    "attributionAvance",
+    "offresRecues",
+    "marcheInnovant",
+    "ccag",
+    "sousTraitanceDeclaree",
+    "typeGroupementOperateurs",
+    "idAccordCadre",
+    "source",
+    "acheteur.id",
+    "lieuExecution.code",
+    "lieuExecution.typeCode",
+    "considerationsSociales",
+    "considerationsEnvironnementales",
+    "modalitesExecution",
+    "techniques",
+    "typesPrix",
+    "tauxAvance",
+    "origineUE",
+    "origineFrance",
+    "montantModification",
+    "idModification",
+    "dureeMoisModification",
+    "idActeSousTraitance",
+    "dureeMoisActeSousTraitance",
+    "dateNotificationActeSousTraitance",
+    "datePublicationDonneesActeSousTraitance",
+    "montantActeSousTraitance",
+    "variationPrixActeSousTraitance",
+    "idSousTraitant",
+    "typeIdentifiantSousTraitant",
+    "idTitulaireModification",
+    "typeIdentifiantTitulaireModification",
+    "dateNotificationModificationModification",
+    "datePublicationDonneesModificationModification",
+    "idModificationActeSousTraitance",
+    "dureeMoisModificationActeSousTraitance",
+    "dateNotificationModificationSousTraitanceModificationActeSousTraitance",
+    "montantModificationActeSousTraitance",
+    "datePublicationDonneesModificationActeSousTraitance"
+]
+
+    df = df.reindex(liste_col_ordonnes, axis=1)
+    return df
+
+def order_columns_concessions(df: pd.DataFrame):
+    """
+    La fonction ordonne les colonnes d'une concession
+    du dataframe dans l'orde indiqué de la liste.
+    """
+    liste_col_ordonnes = [
+    "concessionnaire_id_1",
+    "concessionnaire_typeIdentifiant_1",
+    "concessionnaire_id_2",
+    "concessionnaire_typeIdentifiant_2",
+    "concessionnaire_id_3",
+    "concessionnaire_typeIdentifiant_3",
+    "id",
+    "nature",
+    "objet",
+    "procedure",
+    "dureeMois",
+    "datePublicationDonnees",
+    "source",
+    "considerationsSociales",
+    "considerationsEnvironnementales",
+    "dateSignature",
+    "dateDebutExecution",
+    "valeurGlobale",
+    "montantSubventionPublique",
+    "autoriteConcedante.id",
+    "idModification",
+    "dureeMoisModification",
+    "valeurGlobaleModification",
+    "dateSignatureModificationModification",
+    "datePublicationDonneesModificationModification",
+    "donneesExecution.datePublicationDonneesExecution",
+    "donneesExecution.depensesInvestissement",
+    "donneesExecution.intituleTarif",
+    "donneesExecution.tarif"
+    ]
+    df = df.reindex(liste_col_ordonnes, axis=1)
+    return df
+
 def stabilize_columns(df:pd.DataFrame,set:str):
     columns_reference = conf_glob["df_"+set]
     for column in columns_reference:
@@ -298,14 +403,14 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
            
             
             df["offresRecues"] = df["offresRecues"].fillna(0).astype(int).astype(str)
-            df["tauxAvance"] = df["tauxAvance"].astype(str)
+            if 'tauxAvance' in df.columns:
+                df["tauxAvance"] = df["tauxAvance"].astype(str)
             if 'origineUE' in df.columns:
                 df["origineUE"] = df["origineUE"].astype(str)
             if 'origineFrance' in df.columns:
                  df["origineFrance"] = df["origineFrance"].astype(str)
             if ('origineUE' in df.columns) and ('origineFrance' in df.columns) :
                  df.astype({"dureeMois": 'str', "origineUE": 'str', "origineFrance": 'str'}) 
-
             if 'idActeSousTraitance' in df.columns:
                 df["idActeSousTraitance"] = pd.to_numeric(df["idActeSousTraitance"], downcast='signed')
             if 'lieuExecution.code' in df.columns:
@@ -414,6 +519,7 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
             - Si la racine du code CPV est complète, mais erronée, qu’aucun objet de marché n’est présent et que les deux premiers caractères du code CPV sont erronés, alors aucun retraitement n’est possible et l’enregistrement est mis de côté (ex : 11111111-1).
         Parameters :
             df (pd.DataFrame): dataframe to clean
+            cpv_2008_df: file cpv which is in the folder "data"
         Returns :
             df (pd.DataFrame): cleaned dataframe
         """
@@ -432,16 +538,17 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         def get_completed_key(cpv_root):
             return '0'+cpv_root
 
+        #Dans le datafram cpv, on crée la colonne "CPV Root", contenant que les racines du code CPV
         cpv_2008_df["CPV Root"] = cpv_2008_df["CODE"].str[:8]
 
         # Check if CPV is empty string
-        empty_cpv_mask = df['codeCPV'] == ''
-        df.loc[empty_cpv_mask, 'CPV'] = df.loc[empty_cpv_mask, 'codeCPV']
+        #empty_cpv_mask = df['codeCPV'] == ''
+        #df.loc[empty_cpv_mask, 'CPV'] = df.loc[empty_cpv_mask, 'codeCPV']
         not_empty_cpv_mask = df['codeCPV'] != ''
         df.loc[not_empty_cpv_mask,'CPVCopy'] = df.loc[not_empty_cpv_mask,'codeCPV']
 
         # Fix ECO: complete with zero if size is 7
-        # First: zero in 1st position
+        # First: zero in 1st position without  the key 
         complete_root_mask = df['codeCPV'].str.len() == 7
         cpv_roots = '0'+df.loc[complete_root_mask, 'codeCPV'].str[:7]
         non_existing_roots_mask = ~cpv_roots.isin(cpv_2008_df["CPV Root"].values)
@@ -449,7 +556,7 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         cpv_keys = cpv_roots.str[:8].apply(get_cpv_key_with_dash)
         df.loc[complete_root_mask, 'codeCPV'] = cpv_roots + cpv_keys
 
-        # Secondly: zero in last position
+        # Secondly: zero in last position  without  the key 
         complete_root_mask = df['codeCPV'].str.len() == 7
         cpv_roots = df.loc[complete_root_mask, 'codeCPV'].str[:7]+'0'
         non_existing_roots_mask = ~cpv_roots.isin(cpv_2008_df["CPV Root"].values)
@@ -457,20 +564,23 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         cpv_keys = cpv_roots.str[:8].apply(get_cpv_key_with_dash)
         df.loc[complete_root_mask, 'codeCPV'] = cpv_roots + cpv_keys
 
-        #Motif et masque
+        #Pattern and mask for the next check 
         format_regex = r'^\d{7}-\d{1}$'
         complete_root_mask = df["codeCPV"].str.match(format_regex, na=False)
-
+        
+        # First: zero in 1st position with  the key 
         cpv_roots = '0'+df.loc[complete_root_mask, 'codeCPV'].str[:9]
         non_existing_roots_mask = ~cpv_roots.isin(cpv_2008_df["CODE"].values)
         cpv_roots.loc[non_existing_roots_mask] = cpv_roots.loc[non_existing_roots_mask].str[1:10]
         df.loc[complete_root_mask, 'codeCPV'] = cpv_roots
 
+        # Secondly: zero in last position  with  the key 
         cpv_roots = df.loc[complete_root_mask, 'codeCPV'].str[:7]+'0-'+  df.loc[complete_root_mask, 'codeCPV'].str[8]
         non_existing_roots_mask = ~cpv_roots.isin(cpv_2008_df["CODE"].values)
         cpv_roots.loc[non_existing_roots_mask] = cpv_roots.loc[non_existing_roots_mask].str[0:7]+'-'+cpv_roots.loc[non_existing_roots_mask].str[9]
         df.loc[complete_root_mask, 'codeCPV'] = cpv_roots
         
+
         # For "full" CPV code check if exists, if not use the 2 first number
         full_root = df['codeCPV'].str.len() == 10
         cpv_roots = df.loc[full_root, 'codeCPV'].str[:10]
@@ -479,13 +589,6 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         cpv_roots.loc[non_existing_roots_mask] = cpv_roots.loc[non_existing_roots_mask].str[:8]
         df.loc[full_root, 'codeCPV'] = cpv_roots
 
-        if data_format=='2022':
-            format_regex = r'^\d{8}-\d{1}$'
-            complete_root_mask = ~df["codeCPV"].str.match(format_regex, na=False)
-            cpv_roots = df.loc[complete_root_mask, 'codeCPV'].str[:2]+'000000'
-            cpv_keys = cpv_roots.str[:8].apply(get_cpv_key_with_dash)
-            df.loc[complete_root_mask, 'codeCPV'] = cpv_roots + cpv_keys
-
         # Check if CPV root is complete
         complete_root_mask = df['codeCPV'].str.len() == 8
         cpv_roots = df.loc[complete_root_mask, 'codeCPV'].str[:8]
@@ -493,20 +596,27 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         cpv_roots.loc[non_existing_roots_mask] = cpv_roots.loc[non_existing_roots_mask].str[:2] + '000000'
         cpv_keys = cpv_roots.str[:8].apply(get_cpv_key)
         df.loc[complete_root_mask, 'codeCPV'] = cpv_roots + '-' + cpv_keys
+        
+        if data_format=='2022':
+            format_regex = r'^\d{8}-\d{1}$'
+            complete_root_mask = ~df["codeCPV"].str.match(format_regex, na=False)
+            cpv_roots = df.loc[complete_root_mask, 'codeCPV'].str[:2]+'000000'
+            cpv_keys = cpv_roots.str[:8].apply(get_cpv_key_with_dash)
+            df.loc[complete_root_mask, 'codeCPV'] = cpv_roots + cpv_keys
 
         format_regex = r'^\d{8}-\d{1}$'
         erroned_root_mask = ~df["codeCPV"].str.match(format_regex, na=False)
         if data_format=='2019':
             erroned_root_mask = df['codeCPV'].str.len() == 9
         df.loc[erroned_root_mask, 'codeCPV'] = 'INX '+df.loc[erroned_root_mask, 'CPVCopy']
-
+        
         # Check if CPV key is missing only if CPV root is complete
         #missing_key_mask = (df['codeCPV'].str.len() >= 8) & (df['codeCPV'].str[9:].isin(['', None]))
         #df.loc[missing_key_mask, 'CPV'] = (
         #    df.loc[missing_key_mask, 'codeCPV'].str[:8].apply(get_cpv_key)
         #)
         del df['CPVCopy']
-        del df['CPV']
+        #del df['CPV']
 
         return df
 
@@ -599,6 +709,7 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
     #    del df_marche_badlines_["Erreurs"]
     #else:
     df_marche_badlines_ = reorder_columns(df_marche_badlines_)
+    df_marche_ = order_columns_marches(df_marche_)
 
     return df_marche_, df_marche_badlines_
 
@@ -901,6 +1012,7 @@ def regles_concession(df_concession_: pd.DataFrame,data_format:str) -> pd.DataFr
     #    del df_concession_badlines_['Erreurs']
     #else:
     df_concession_badlines_ = reorder_columns(df_concession_badlines_)
+    df_concession_ = order_columns_concessions(df_concession_)
 
     return df_concession_, df_concession_badlines_
 
@@ -1063,16 +1175,69 @@ def check_id_format(df: pd.DataFrame, dfb: pd.DataFrame) -> pd.DataFrame:
     return df, dfb
 
 def mark_mandatory_field(df: pd.DataFrame,field_name:str) -> pd.DataFrame:
+    """
+    Le contenu de la colonne "field_name" du dataframe "df" est vérifié.
+    La colonne "filed_name" est un colonne obligatoire.
+    Les cases vides sont complétées par le tag "MQ", qui signifie 
+    "manquant".
+    """
     if field_name in df.columns:
         empty_mandatory = ~pd.notna(df[field_name]) | pd.isnull(df[field_name])
         if not empty_mandatory.empty:
             df[field_name] = df[field_name].astype('str')
-            df.loc[empty_mandatory,field_name] = 'MQ'                
+            df.loc[empty_mandatory,field_name] = 'MQ'  
     return df
 
+# def mark_particular_field(df:pd.DataFrame, field_name:str) -> pd.DataFrame:
+#     """
+#     Cas particulier pour le code CPV. Selon la valeur du codeCPV, 
+#     les champs "origineUE" et "origineFrance" sont tagués par "MQ"
+#     """
+#     # Transformation de la colonne CPV      
+#     df_cpv = pd.read_excel("data/cpv.xls", engine="xlrd")
+#     df_cpv['CODE'] = df_cpv['CODE'].astype(str).str.replace("-", ".")  #On souhaite  réaliser ue conversion numérique. Donc 
+#                                                                        #on remplace les "-" par les points.
+#     df_cpv['CODE'] = pd.to_numeric(df_cpv['CODE'], errors='coerce')
+
+#     #Liste des intervalles de codes 
+#     codes_obligatoires = [
+#     (15100000.9, 15982200.7),
+#     (34100000.8, 34144910.0),
+#     (34510000.5, 34522700.9),
+#     (34600000.3, 34622500.8),
+#     (34710000.7, 34722200.6),
+#     (33100000.1, 33198200.6),
+#     (33600000.6, 33698300.2),
+#     (18100000.0, 18453000.9),
+#     (18800000.7, 18843000.0)
+#     ]
+
+#     #Nous utiliserons cette variable pour le masque pour chacun des intervalles
+#     masque_codes_obligatoires = pd.Series([False] * len(df_cpv))
+
+#     #Mise à jour du masque
+#     for debut, fin in codes_obligatoires:
+#         masque_intervalle = (df_cpv['CODE'] >= debut) & (df_cpv['CODE'] <= fin)
+#         masque_codes_obligatoires = masque_codes_obligatoires | masque_intervalle  #ou inclusif
+
+#     df_codes_obligatoires = df_cpv[masque_codes_obligatoires]
+#     print(df_codes_obligatoires['CODE'].tolist())
+
+#     #Selon cette liste, nous allons marquer les colonnes "orgineFrance" et "origineUE"
+#     masque = df[:,'codeCPV'].isin(df_codes_obligatoires['CODE'].tolist())
+#     masque2 = df[:,'origineUE','origineFrance'].isin(df_codes_obligatoires['CODE'].tolist())
+#     df[:,['origineUE','origineFrance']] = df[masque].
+
+
 def mark_optional_field(df: pd.DataFrame,field_name:str) -> pd.DataFrame:
+    """
+    Le contenu de la colonne "field_name" du dataframe "df" est vérifié.
+    La colonne "filed_name" est un colonne optionnelle.
+    Les cases vides sont complétées par le tag "CDL", qui signifie 
+    "conditionnelle".
+    """
     if field_name in df.columns:
-        empty_optional  = ~pd.notna(df[field_name]) | pd.isnull(df[field_name]) | (df[field_name]=='')
+        empty_optional  = ~pd.notna(df[field_name]) | pd.isnull(df[field_name]) | (df[field_name]=='') | (df[field_name]=='nan')
         if not empty_optional.empty:
             df[field_name] = df[field_name].astype('str')
             df.loc[empty_optional,field_name] = 'CDL'
@@ -1132,13 +1297,17 @@ def mark_bad_format_multi_field(df: pd.DataFrame,field_name:str,pattern:str) -> 
             df.loc[empty_mandatory,field_name] = 'MQ'
     return df
 
-def mark_bad_format_int_field(df: pd.DataFrame,field_name:str,pattern:str = r'^[0-9]{1,12}$') -> pd.DataFrame:
+def mark_bad_format_int_field(df: pd.DataFrame,field_name:str,pattern:str = r'^[0-9]{1,12}(\.0{1,4})?$') -> pd.DataFrame:
     if field_name in df.columns:
         empty_mandatory = pd.notna(df[field_name]) & ~pd.isnull(df[field_name]) & \
             ~df[field_name].astype(str).str.match(r'^(?:MQ|CDL)$', na=False, case=False) & \
             ~df[field_name].astype(str).str.match(pattern, na=False, case=False)
         if not empty_mandatory.empty:
             df.loc[empty_mandatory,field_name] = 'INX '+df.loc[empty_mandatory,field_name].astype(str)
+            
+        #Les lignes dont le contenu est de la forme "XXXX.0" sont transformés en entier. On ne garde que la partie entière car la partie décimale est nulle
+        almost_int = df[field_name].astype(str).str.match(r'^[0-9]+\.(0+)$', na=False, case=False)
+        df.loc[almost_int, field_name] = df.loc[almost_int, field_name].apply(lambda x: x.split('.')[0])
     return df
 
 def mark_bad_format_float_field(df: pd.DataFrame,field_name:str,pattern:str = r'^[0-9]{1,12}.{0,1}[0-9]{0,4}$') -> pd.DataFrame:
@@ -1206,8 +1375,6 @@ def marche_mark_fields(df: pd.DataFrame) -> pd.DataFrame:
     df = mark_mandatory_field(df,"considerationsSociales")
     df = mark_mandatory_field(df,"considerationsEnvironnementales")
     df = mark_mandatory_field(df,"marcheInnovant")
-    df = mark_mandatory_field(df,"origineUE")
-    df = mark_mandatory_field(df,"origineFrance")
     df = mark_mandatory_field(df,"ccag")
     df = mark_mandatory_field(df,"offresRecues")
     df = mark_mandatory_field(df,"montant")
@@ -1230,6 +1397,9 @@ def marche_mark_fields(df: pd.DataFrame) -> pd.DataFrame:
     df = mark_optional_field(df,"tauxAvance")
     df = mark_optional_field(df,"typeGroupementOperateurs")
     df = mark_optional_field(df,"sousTraitanceDeclaree")
+    df = mark_optional_field(df,"origineUE")
+    df = mark_optional_field(df,"origineFrance")
+    mark_particular_field(df,"codeCPV")
     # Actes sous traitance
     df = mark_optional_field(df,"idActeSousTraitance")
     df = mark_optional_field(df,"dureeMoisActeSousTraitance")
@@ -1258,17 +1428,17 @@ def marche_mark_fields(df: pd.DataFrame) -> pd.DataFrame:
     df = mark_optional_field(df,"datePublicationDonneesModificationActeSousTraitance")
 
     # Format check
-    df = mark_bad_format_field(df,"id",r'^[A-Za-z0-9\-_ ]{1,16}$')
+    df = mark_bad_format_field(df,"id",r'^[A-Za-z0-9\-_.\\/]{1,16}$')
     df = mark_bad_insee_field(df,"acheteur.id")
     df = mark_bad_format_field(df,"nature",r'^(?:Marché|Marché de partenariat|Marché de défense ou de sécurité)$')
     df = mark_bad_format_field(df,"objet",r'^.{0,1000}$')
     df = mark_bad_format_multi_field(df,"techniques",r'^(Accord-cadre|Concours|Système de qualification|Système d\'acquisition dynamique|Catalogue électronique|Enchère électronique|Sans objet)$')
     df = mark_bad_format_multi_field(df,"modalitesExecution",r'^(Tranches|Bons de commande|Marchés subséquents|Sans objet)$')
-    df = mark_bad_format_field(df,"idAccordCadre",r'^[A-Za-z0-9\-_ ]{1,16}$')
+    df = mark_bad_format_field(df,"idAccordCadre",r'^[A-Za-z0-9\-_ .\\/]{1,16}$')
     #df = mark_bad_format_field(df,"codeCPV",r'^[0-9]{8}[-]{1}[0-9]{1}$')
     df = mark_bad_format_field(df,"procedure",r'^(Procédure adaptée|Appel d\'offres ouvert|Appel d\'offres restreint|Procédure avec négociation|Marché passé sans publicité ni mise en concurrence préalable|Dialogue compétitif)$')
     #df = mark_bad_format_field(df,"lieuExecution.code",r'^[A-Za-z0-9]{1,6}$')
-    df = mark_bad_format_field(df,"lieuExecution.typeCode",r'^(Code postal|Code commune|Code arrondissement|Code canton|Code départemen|Code région|Code pays)$')
+    df = mark_bad_format_field(df,"lieuExecution.typeCode",r'^(Code postal|Code commune|Code arrondissement|Code canton|Code département|Code région|Code pays)$')
     df = mark_bad_format_int_field(df,"dureeMois")
     df = mark_bad_format_field(df,"dateNotification",PATTERN_DATE)  
     df = mark_bad_format_multi_field(df,"considerationsSociales",r'^(Clause sociale|Critère social|Marché réservé|Pas de considération sociale)$')
@@ -1276,7 +1446,7 @@ def marche_mark_fields(df: pd.DataFrame) -> pd.DataFrame:
     df = mark_bad_format_field(df,"marcheInnovant",r'^(True|False|0|1|oui|non)$')
     df = mark_bad_format_float_field(df,"origineUE")
     df = mark_bad_format_float_field(df,"origineFrance")
-    df = mark_bad_format_field(df,"ccag",r'^(Travaux|Maitrise d’œuvre|Fournitures courantes et services|Marchés industriels|Prestations intellectuelles|Techniques de l\'information et de la communication|Pas de CCAG)$')
+    df = mark_bad_format_field(df,"ccag",r'^(Travaux|Maitrise d\'œuvre|Fournitures courantes et services|Marchés industriels|Prestations intellectuelles|Techniques de l\'information et de la communication|Pas de CCAG)$')
     df = mark_bad_format_int_field(df,"offresRecues")
     df = mark_bad_format_float_field(df,"montant")
     df = mark_bad_format_field(df,"formePrix",r'^(Unitaire|Forfaitaire|Mixte)$')
