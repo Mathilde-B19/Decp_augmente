@@ -58,7 +58,7 @@ def load_files_and_unzip(urls):
             except requests.exceptions.RequestException as e:
                 logger.error(f"Erreur lors du téléchargement de {url}: {e}")
         else : 
-            logger.info(f"Le fichier {url} est déjâ présent, on ne le retélécharge pas")
+            logger.info(f"Le fichier {url} est déjà présent, on ne le retélécharge pas")
         cpt = cpt+1
 
         

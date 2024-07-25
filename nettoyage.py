@@ -46,9 +46,9 @@ if not (os.path.exists(path_to_conf)):  # Si le chemin confs n'existe pas (dans 
 with open(os.path.join("confs", "config_data.json")) as f:
     conf_data = json.load(f)
 
-path_to_data = conf_data["path_to_data"]
+# path_to_data = conf_data["path_to_data"]
 decp_file_name = conf_data["decp_file_name"]
-path_to_data = conf_data["path_to_data"]  # Réécris
+# path_to_data = conf_data["path_to_data"]  # Réécris
 
 
 def main(data_format:str = '2022'):
@@ -58,7 +58,9 @@ def main(data_format:str = '2022'):
 
     logger.info("Format utilisé " + data_format)
 
-    json_source = 'decp_'+data_format +'.json'
+    # Chemin du fichier decp global
+    # json_source = 'decp_'+data_format +'.json'
+    json_source = f"../Decp_rama/results/decp_daily.json"
     
     #if not os.path.isfile("data/decpv2.json"):
     #    print("Load file from S3 repositary")
@@ -66,7 +68,7 @@ def main(data_format:str = '2022'):
         utils.download_file("data/"+json_source,"data/"+json_source)
         utils.download_file("data/cpv.xls","data/cpv.xls")
 
-    with open(os.path.join(path_to_data, json_source), 'rb') as f:
+    with open(json_source, 'rb') as f:
         # c'est long de charger le json, je conseille de le faire une fois et de sauvegarder le df en pickle pour les tests
         df = convert_json_to_pandas.manage_modifications(json.load(f),data_format)
 
@@ -77,7 +79,7 @@ def main(data_format:str = '2022'):
 
     logger.info("Nettoyage des données")
     manage_data_quality(df,data_format)
- 
+
 
 @compute_execution_time
 def manage_data_quality(df: pd.DataFrame,data_format:str):
@@ -118,8 +120,8 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
         del df_concession1
         df_marche = df_marche.loc[~df_marche['_type'].str.contains('concession', case=False, na=False)]
     else:
-        df_marche = df.loc[df['nature'].str.contains('March', case=False, na=False)]
-        df_concession = df.loc[~df['nature'].str.contains('March', case=False, na=False)]
+        df_marche = df.loc[df['_type'].str.contains('March', case=False, na=False)]
+        df_concession = df.loc[~df['_type'].str.contains('March', case=False, na=False)]
 
     delete_columns(df_concession,"concession_"+data_format)
     utils.save_csv(df_concession, "concession.csv")
@@ -1399,7 +1401,6 @@ def marche_mark_fields(df: pd.DataFrame) -> pd.DataFrame:
     df = mark_optional_field(df,"sousTraitanceDeclaree")
     df = mark_optional_field(df,"origineUE")
     df = mark_optional_field(df,"origineFrance")
-    mark_particular_field(df,"codeCPV")
     # Actes sous traitance
     df = mark_optional_field(df,"idActeSousTraitance")
     df = mark_optional_field(df,"dureeMoisActeSousTraitance")
