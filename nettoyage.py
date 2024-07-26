@@ -4,7 +4,7 @@ import pickle
 import logging.handlers
 import re
 import math
-
+import upload_dataeco as up
 import argparse
 import numpy as np
 import pandas as pd,csv
@@ -46,9 +46,9 @@ if not (os.path.exists(path_to_conf)):  # Si le chemin confs n'existe pas (dans 
 with open(os.path.join("confs", "config_data.json")) as f:
     conf_data = json.load(f)
 
-# path_to_data = conf_data["path_to_data"]
+path_to_data = conf_data["path_to_data"]
 decp_file_name = conf_data["decp_file_name"]
-# path_to_data = conf_data["path_to_data"]  # Réécris
+#path_to_data = conf_data["path_to_data"]  # Réécris
 
 
 def main(data_format:str = '2022'):
@@ -58,20 +58,17 @@ def main(data_format:str = '2022'):
 
     logger.info("Format utilisé " + data_format)
 
-    # Chemin du fichier decp global
-    # json_source = 'decp_'+data_format +'.json'
+    #json_source = 'decp_'+data_format +'.json'
     json_source = f"../Decp_rama/results/decp_daily.json"
-    
     #if not os.path.isfile("data/decpv2.json"):
     #    print("Load file from S3 repositary")
     if not args.local:
         utils.download_file("data/"+json_source,"data/"+json_source)
-        utils.download_file("data/cpv.xls","data/cpv.xls")
+        utils.download_file("data/cpv_2008_fr.xls","data/cpv_2008_fr.xls")
 
     with open(json_source, 'rb') as f:
         # c'est long de charger le json, je conseille de le faire une fois et de sauvegarder le df en pickle pour les tests
         df = convert_json_to_pandas.manage_modifications(json.load(f),data_format)
-
     if args.test:
         #m = math.ceil(len(df.index)/3)
         df = df.sample(n=len(df.index), random_state=1)   #on récupère tous les marchés et concessions
@@ -80,6 +77,15 @@ def main(data_format:str = '2022'):
     logger.info("Nettoyage des données")
     manage_data_quality(df,data_format)
 
+    #Étant donné qu'on ne fait pas l'enrichissement pour l'instant le programme s'arrête ici et on upload les 4 fichiers.
+
+    maintenant = datetime.now() 
+    date = maintenant.strftime("%Y-%m-%d")
+    files_to_upload = [(f"{date}-marche-2022.csv","decp/2022/marches-valides"),(f"{date}-concession-2022.csv","decp/2022/concessions-valides"),(f"{date}-marche-exclu-2022.csv","decp/2022/marches-invalides"),(f"{date}-concession-exclu-2022.csv","decp/2022/concessions-invalides")]
+    for f in files_to_upload :
+        up.upload_dataeco(f[0],f[1])
+
+ 
 
 @compute_execution_time
 def manage_data_quality(df: pd.DataFrame,data_format:str):
@@ -120,8 +126,8 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
         del df_concession1
         df_marche = df_marche.loc[~df_marche['_type'].str.contains('concession', case=False, na=False)]
     else:
-        df_marche = df.loc[df['_type'].str.contains('March', case=False, na=False)]
-        df_concession = df.loc[~df['_type'].str.contains('March', case=False, na=False)]
+        df_marche = df.loc[df['nature'].str.contains('March', case=False, na=False)]
+        df_concession = df.loc[~df['nature'].str.contains('March', case=False, na=False)]
 
     delete_columns(df_concession,"concession_"+data_format)
     utils.save_csv(df_concession, "concession.csv")

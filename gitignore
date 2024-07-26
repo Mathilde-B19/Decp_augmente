@@ -1,0 +1,47 @@
+# Data
+data/
+cache/
+*.csv
+*.jq
+config.json
+df_*
+profiling*
+opti_*
+opit_*
+saagie_*
+
+# Fichier Mac
+.DS_Store
+*.icloud
+
+# Fichier de configuration pour pycharm
+.idea/
+
+# PYTHON
+__pycache__
+test.py
+
+# Fichier intermédiaire
+df_backup_acheteur
+df_backup_cpv
+df_nettoye
+df_reorganisation
+
+#Config vscode
+.vscode
+venv/
+
+#Suppresion des logs
+*.log
+
+#Suppression de decp.json 
+decp.json
+
+#Suppression des zip
+*.zip
+data-REF/cpv_2008_ver_2013.xlsx
+data-REF/decpv2.json
+data-REF/dfafterconvertsmall.pkl
+
+#Identifiants
+creds.json
