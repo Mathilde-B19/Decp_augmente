@@ -83,7 +83,7 @@ def main(data_format:str = '2022'):
     date = maintenant.strftime("%Y-%m-%d")
     files_to_upload = [(f"{date}-marche-2022.csv","decp/2022/marches-valides"),(f"{date}-concession-2022.csv","decp/2022/concessions-valides"),(f"{date}-marche-exclu-2022.csv","decp/2022/marches-invalides"),(f"{date}-concession-exclu-2022.csv","decp/2022/concessions-invalides")]
     for f in files_to_upload :
-        up.upload_dataeco(f[0],f[1])
+        #up.upload_dataeco(f[0],f[1])
 
  
 
@@ -101,7 +101,7 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
 
     Les lignes exclues seront publiées sur data.economie.gouv.fr dans un fichier csv.
 
-    Arguments
+    Args:
     ----------
     df :  le dataframe des données bruts.
 
@@ -126,8 +126,8 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
         del df_concession1
         df_marche = df_marche.loc[~df_marche['_type'].str.contains('concession', case=False, na=False)]
     else:
-        df_marche = df.loc[df['nature'].str.contains('March', case=False, na=False)]
-        df_concession = df.loc[~df['nature'].str.contains('March', case=False, na=False)]
+        df_marche = df.loc[df['_type'].str.contains('March', case=False, na=False)]
+        df_concession = df.loc[~df['_type'].str.contains('March', case=False, na=False)]
 
     delete_columns(df_concession,"concession_"+data_format)
     utils.save_csv(df_concession, "concession.csv")
@@ -140,7 +140,6 @@ def manage_data_quality(df: pd.DataFrame,data_format:str):
     else:
         df_concession = pd.DataFrame([])
         df_concession_badlines = pd.DataFrame([])
-        
     if not df_marche.empty:
         df_marche, df_marche_badlines = regles_marche(df_marche,data_format)
     else:
@@ -251,9 +250,6 @@ def order_columns_marches(df: pd.DataFrame):
     "tauxAvance",
     "origineUE",
     "origineFrance",
-    "montantModification",
-    "idModification",
-    "dureeMoisModification",
     "idActeSousTraitance",
     "dureeMoisActeSousTraitance",
     "dateNotificationActeSousTraitance",
@@ -262,6 +258,9 @@ def order_columns_marches(df: pd.DataFrame):
     "variationPrixActeSousTraitance",
     "idSousTraitant",
     "typeIdentifiantSousTraitant",
+    "idModification",
+    "montantModification",
+    "dureeMoisModification",
     "idTitulaireModification",
     "typeIdentifiantTitulaireModification",
     "dateNotificationModificationModification",
@@ -272,8 +271,10 @@ def order_columns_marches(df: pd.DataFrame):
     "montantModificationActeSousTraitance",
     "datePublicationDonneesModificationActeSousTraitance"
 ]
-
-    df = df.reindex(liste_col_ordonnes, axis=1)
+    #On garde que les colonnes présentes dans le dataframe
+    colonnes_presentes = [col for col in liste_col_ordonnes if col in df.columns]
+    #Réorganisation des colonnes
+    df = df.reindex(colonnes_presentes, axis=1)
     return df
 
 def order_columns_concessions(df: pd.DataFrame):
@@ -312,7 +313,11 @@ def order_columns_concessions(df: pd.DataFrame):
     "donneesExecution.intituleTarif",
     "donneesExecution.tarif"
     ]
-    df = df.reindex(liste_col_ordonnes, axis=1)
+
+    #On garde que les colonnes présentes dans le dataframe
+    colonnes_presentes = [col for col in liste_col_ordonnes if col in df.columns]
+    #Réorganisation
+    df = df.reindex(colonnes_presentes, axis=1)
     return df
 
 def stabilize_columns(df:pd.DataFrame,set:str):
@@ -328,6 +333,12 @@ def stabilize_columns(df:pd.DataFrame,set:str):
 def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
     df_marche_badlines_ = pd.DataFrame(columns=df_marche_.columns)
     
+    #Cas spécial. Ces colonnes existent déjà dans le df et sont, par défaut, rempli avec le 1er élément de la liste
+    suppression_colonnes =['dureeMoisActeSousTraitance', 'montantActeSousTraitance', 'variationPrixActeSousTraitance',\
+                            'montantActeSousTraitance', 'idActeSousTraitance', 'dateNotificationActeSousTraitance',\
+                            'datePublicationDonneesActeSousTraitance', 'typeIdentifiantSousTraitant','idSousTraitant']
+    df_marche_.drop(columns=suppression_colonnes, inplace=True)
+
     @compute_execution_time
     def dedoublonnage_marche(df: pd.DataFrame) -> pd.DataFrame:
         
@@ -515,7 +526,7 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         Un code CPV est INEXPLOITABLE s’il n’appartient pas à la liste des codes CPV existants dans la nomenclature européenne 2008 des CPV
         Les CPV fonctionnent en arborescence. Le CPV le plus générique est le premier de la liste d’une division. Il y a 45 divisions (03, 09, 14, 15, 16,18…).
         En lisant de gauche à droite, le code CPV le plus générique de la division comportera un « 0 » au niveau du 3ᵉ caractère.
-        Ex pour la division 45 : CPV le plus générique : 45000000-7 (travaux de construction)
+        Ex pour la division 45 : CPV le plus générique : 45000000-7 (travaux de construction).
         Règles :
             - Si la clé du code CPV est manquante et que la racine du code CPV est correcte (8 premiers caractères) alors il convient de compléter avec la clé correspondante issue de la base CPV 2008.
             - Si la racine du code CPV est complète, mais qu’elle n’existe pas dans la base CPV 2008, alors il convient de prendre le code CPV le plus générique de son arborescence.
@@ -525,6 +536,7 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         AUCUN RETRAITEMENT POSSIBLE :
             - Si la racine du code CPV est incomplète, qu’aucun objet de marché n’est présent et que les deux premiers caractères du code CPV sont erronés, alors aucun retraitement n’est possible et l’enregistrement est mis de côté (ex : 111111).
             - Si la racine du code CPV est complète, mais erronée, qu’aucun objet de marché n’est présent et que les deux premiers caractères du code CPV sont erronés, alors aucun retraitement n’est possible et l’enregistrement est mis de côté (ex : 11111111-1).
+        L'ordre de vérification est important. 
         Parameters :
             df (pd.DataFrame): dataframe to clean
             cpv_2008_df: file cpv which is in the folder "data"
@@ -550,8 +562,6 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
         cpv_2008_df["CPV Root"] = cpv_2008_df["CODE"].str[:8]
 
         # Check if CPV is empty string
-        #empty_cpv_mask = df['codeCPV'] == ''
-        #df.loc[empty_cpv_mask, 'CPV'] = df.loc[empty_cpv_mask, 'codeCPV']
         not_empty_cpv_mask = df['codeCPV'] != ''
         df.loc[not_empty_cpv_mask,'CPVCopy'] = df.loc[not_empty_cpv_mask,'codeCPV']
 
@@ -701,11 +711,17 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
     df_marche_, df_marche_badlines_ = check_siret_ext(df_marche_, df_marche_badlines_, "titulaire",'IREP')
     df_marche_, df_marche_badlines_ = check_siret_ext(df_marche_, df_marche_badlines_, "titulaire",'HORS-UE')
 
-    df_cpv = pd.read_excel("data/cpv.xls", engine="xlrd")  #engine=openpyxl   xlrd
+    df_cpv = pd.read_excel("data/cpv_2008_fr.xls", engine="xlrd")  #engine=openpyxl   xlrd
 
     df_marche_ = marche_cpv(df_marche_, df_cpv, data_format)
+
+    # print(df_marche_)
+    #Champs ayant des listes
+    df_marche_ = keep_more_recent(df_marche_,"modifications")
+    df_marche_ = keep_more_recent(df_marche_,"modificationsActesSousTraitance")
+    df_marche_ = keep_more_recent(df_marche_,"actesSousTraitance")
     
-     # delete df_cpv to free memory
+    # delete df_cpv to free memory
     del df_cpv
 
     df_marche_, df_marche_badlines_ = check_duree_contrat(df_marche_, df_marche_badlines_, 180)
@@ -713,9 +729,6 @@ def regles_marche(df_marche_: pd.DataFrame,data_format:str) -> pd.DataFrame:
 
     df_marche_, df_marche_badlines_ = check_id_format(df_marche_, df_marche_badlines_)
 
-    #if data_format=='2019':
-    #    del df_marche_badlines_["Erreurs"]
-    #else:
     df_marche_badlines_ = reorder_columns(df_marche_badlines_)
     df_marche_ = order_columns_marches(df_marche_)
 
@@ -795,56 +808,33 @@ def regles_concession(df_concession_: pd.DataFrame,data_format:str) -> pd.DataFr
 
         def extract_values_donnees_execution(row: list):
             """
-            create 4 new columns with some values of the donneesExecution column
-
-            new col name : datePublicationDonneesExecution,depensesInvestissement,intituleTarif,tarif
-
+            select the element the most recent in the donneesExecution column
             """
-            new_columns = {}
-            new_columns['datePublicationDonneesExecution'] = np.nan
-            new_columns['depensesInvestissement'] = np.nan
-            new_columns['intituleTarif'] = np.nan
-            new_columns['tarif'] = np.nan
-            
-            if isinstance(row, list):
-                if len(row)>0:
-                    # how is the list of donneesExecution
-                    # if contain a dict where key is exactly : donneesExecution, then the list we want is the value of this dict key
-                    if 'donneesExecution' in row[0].keys():
-                        row = [item['donneesExecution'] for item in row]
-                    row = row[:1]  # Keep only the first donneesExecution
-                else:
-                    # if row is empty, then it is empty and for obscure reason script thinks it's a float so returning nan
-                    return pd.Series(new_columns)
+            dico_le_plus_recent = {}
+            for element in (row):
+                #Dictionnaire avec plusieurs clés et valeurse
+                if isinstance(element,dict):
+                    date1 = dico_le_plus_recent.get("datePublicationDonneesExecution", None)
+                    date2 = element.get("datePublicationDonneesExecution", None)
+
+                    #Comparaison de date pour sélectionner le dictionnaire le plus récent
+                    if date1 is None or (date1 < date2):
+                        dico_le_plus_recent = element
+                          
+            datePublication = dico_le_plus_recent.get("datePublicationDonneesExecution", None)
+            depensesInvestissement = dico_le_plus_recent.get("depensesInvestissement", None)
+
+           # Gestion du champ "tarifs" pour obtenir le dernier tarif et son intitulé
+            derniers_tarifs = dico_le_plus_recent.get("tarifs", [])
+            if derniers_tarifs: 
+                dernier_tarif_info = derniers_tarifs[-1].get("tarif", {})
+                intituleTarif = dernier_tarif_info.get("intituleTarif", None)
+                tarif = dernier_tarif_info.get("tarif", None)
             else:
-                # if row is not a list, then it is empty and for obscure reason script thinks it's a float so returning nan
-                return pd.Series(new_columns)
-
-            # le traitement ici à lieux car comme on dit : "Garbage in, garbage out" mais on est gentil on corrige leurs formats -_-
-            # check if row is a list of list of dict, if so, keep only the first list
-            if isinstance(row[0], list):
-                row = row[0]
-
-            # fill new columns with values from donneesExecution column if exist
-            for value, donneesExecution in enumerate(row, start=1):
-                # replace value in new_columns by corresponding value in donneesExecution
-                cols = ['datePublicationDonneesExecution', 'depensesInvestissement']
-                if data_format=='2022':
-                    cols.append('dureeMois')
-                    cols.append('valeurGlobale')
-                for col_name in cols:
-                    col_name_ref = col_name
-                    # col_name is key in donneesExecution dict, col_to_fill is key in new_columns dict. get key value in col_name and put it in col_to_fill
-                    if "DonneesExecution" not in col_name and col_name != 'depensesInvestissement':
-                        col_name += "DonneesExecution"
-                    if donneesExecution:
-                        new_columns[col_name] = donneesExecution.get(col_name_ref, np.nan)
-                for col_name_ref in ['tarifs']:
-                    for valT, tarifs in enumerate(donneesExecution['tarifs'], start=1):
-                        for col_name_tarif in ['intituleTarif', 'tarif']:
-                            new_columns[col_name_tarif] = tarifs.get(col_name_tarif, np.nan)
-
-            return pd.Series(new_columns)
+                intituleTarif = None
+                tarif = None
+                
+            return datePublication, depensesInvestissement, intituleTarif, tarif
 
         #if data_format=='2022':
         #    df = df["donneesExecution"].apply(extract_values_donnees_execution).join(df)
@@ -855,6 +845,10 @@ def regles_concession(df_concession_: pd.DataFrame,data_format:str) -> pd.DataFr
 
         df = df["concessionnaires"].apply(extract_values,data_format=data_format).join(df)
         df.drop(columns=["concessionnaires"], inplace=True)
+
+        #Donnees execution
+        df[["donneesExecution.datePublicationDonneesExecution", "donneesExecution.depensesInvestissement", \
+            "donneesExecution.intituleTarif", "donneesExecution.tarif"]] = df["donneesExecution"].apply(extract_values_donnees_execution).apply(pd.Series)
 
         logging.info("dedoublonnage_concession")
         print("df_concession_ avant dédoublonnage : " + str(df.shape))
@@ -1024,6 +1018,87 @@ def regles_concession(df_concession_: pd.DataFrame,data_format:str) -> pd.DataFr
 
     return df_concession_, df_concession_badlines_
 
+def keep_more_recent(df:pd.DataFrame,field_name:str)-> pd.DataFrame:
+    """
+    Cette fonction gère les champs qui ont une liste de dictionnaire. 
+    """
+
+    #Sélectionner le dictionnaire ayant l'id le plus élevé
+    def comparer_dico(dico_un: dict, dico_deux:dict)->dict:
+        if dico_un is None:
+            return dico_deux
+        elif dico_deux is None:
+            return dico_un
+
+        date_une = dico_un.get("datePublicationDonnees", None) or dico_un.get("datePublicationDonneesModification", None)
+        date_deux = dico_deux.get("datePublicationDonnees", None) or dico_deux.get("datePublicationDonneesModification", None)
+
+        if date_une is None or (date_une <= date_deux):
+            return dico_deux
+        if date_deux is None or(date_une > date_deux):
+            return dico_un
+        
+    #Sélectionner le dictionnaire ayant la date la plus récente
+    
+    #print(field_name)
+    if field_name in df.columns:
+        listes_non_vides = df[df[field_name].apply(lambda x: isinstance(x, list) and len(x) > 0)]
+        listes_vides = df[~df[field_name].apply(lambda x: isinstance(x, list) and len(x) > 0)]        
+        
+        #Parcourir chaque ligne du dataframe
+        for index, ligne in listes_non_vides.iterrows():
+            dico_plus_recent = {}
+            #Parcourir chaque liste 
+            for element in ligne[field_name]:
+                #Dictionnaire avec une seule clé dont la valeur est un dictionnaire
+                if isinstance(element,dict) and len(element.keys())==1:
+                    cle = list(element.keys())[0]
+                    dico_deux = element[cle]
+                    dico_plus_recent = comparer_dico(dico_plus_recent,dico_deux)
+                #Dictionaire avec plusieurs clés et valeurs
+                elif isinstance(element,dict):
+                    dico_plus_recent = comparer_dico(dico_plus_recent,element)
+            #print(dico_plus_recent)     #ceci est correcte
+            # Mettre à jour le DataFrame avec le dictionnaire le plus récent
+            listes_non_vides.at[index, field_name] = [dico_plus_recent] if dico_plus_recent else []
+            listes_non_vides = complete_columns_from_list(listes_non_vides,field_name,index,dico_plus_recent)
+        df = pd.concat([listes_non_vides, listes_vides], ignore_index=True)
+    #print(listes_vides)
+    return df
+
+def complete_columns_from_list(df:pd.DataFrame,field_name:str, ligne:int, dico: dict) -> pd.DataFrame:
+    if field_name=='actesSousTraitance':
+        df.loc[ligne, 'idActeSousTraitance'] = dico.get('id', None)
+        df.loc[ligne, 'dureeMoisActeSousTraitance'] = dico.get('dureeMois', None)
+        df.loc[ligne, 'dateNotificationActeSousTraitance'] = dico.get('dateNotification', None)
+        df.loc[ligne, 'montantActeSousTraitance'] = dico.get('montant', None)
+        df.loc[ligne, 'variationPrixActeSousTraitance'] = dico.get('variationPrix', None)
+        df.loc[ligne, 'datePublicationDonneesActeSousTraitance'] = dico.get('datePublicationDonnees', None)
+        df.loc[ligne, 'idSousTraitant'] = dico.get('sousTraitant', {}).get('id', None)
+        df.loc[ligne, 'typeIdentifiantSousTraitant'] = dico.get('sousTraitant', {}).get('typeIdentifiant', None)
+
+    if field_name=='modifications':
+        df.loc[ligne, 'idModification'] = dico.get('id', None)
+        df.loc[ligne, 'dureeMoisModification'] = dico.get('dureeMoisActeSousTraitance', None)
+        df.loc[ligne, 'montantModification'] = dico.get('montant', None) 
+        df.loc[ligne, 'idTitulaireModification'] = dico.get('titulaires', [{}])[0].get('id', None) 
+        df.loc[ligne, 'typeIdentifiantTitulaireModification'] = dico.get('titulaires', [{}])[0].get('typeIdentifiant', None)
+        df.loc[ligne, 'dateNotificationModificationModification'] = dico.get('dateNotificationModification', None)
+        df.loc[ligne, 'datePublicationDonneesModificationModification'] = dico.get('datePublicationDonneesModification', None)
+
+        
+    
+    if field_name=='modificationsActesSousTraitance':
+        #print (dico)
+        df.loc[ligne, 'idModificationActeSousTraitance'] = dico.get('id', None)
+        df.loc[ligne, 'dureeMoisModificationActeSousTraitance'] = dico.get('dureeMois', None)
+        df.loc[ligne, 'dateNotificationModificationSousTraitanceModificationActeSousTraitance'] = dico.get('dateNotificationModificationSousTraitance', None)
+        df.loc[ligne, 'montantModificationActeSousTraitance'] = dico.get('montant', None)
+        df.loc[ligne, 'datePublicationDonneesModificationActeSousTraitance'] = dico.get('datePublicationDonnees', None)
+        # print(dico)
+        # print(df)
+
+    return df
 
 def check_montant(df: pd.DataFrame, dfb: pd.DataFrame, col: str, montant : int = 15000000000) -> pd.DataFrame:
     """
@@ -1091,7 +1166,6 @@ def check_siret(df: pd.DataFrame, dfb: pd.DataFrame, col: str) -> pd.DataFrame:
     df = df[df[col].astype(str).str.match("^[0-9]{14}$")]
 
     dfb = populate_error(dfb,f"Numéro SIRET erroné pour le champ {col}")
-
     return df, dfb
 
 def check_siret_ext(df: pd.DataFrame, dfb: pd.DataFrame, col: str, type:str) -> pd.DataFrame:
@@ -1118,7 +1192,7 @@ def check_siret_ext(df: pd.DataFrame, dfb: pd.DataFrame, col: str, type:str) -> 
         expression =  "^[0-9]{5}[a-zA-Z0-9]*$"
     if type=='HORS-UE':
         expression =  "^[A-Z]{2}[a-zA-Z0-9]{0,16}$"
- 
+  
     if expression!=None:
         dfb = pd.concat([dfb, df[(df[col_type]==type) & (~df[col_id].astype(str).str.match(
             expression))]])
@@ -1127,7 +1201,6 @@ def check_siret_ext(df: pd.DataFrame, dfb: pd.DataFrame, col: str, type:str) -> 
             dfb = pd.concat([dfb, df[(df[col_type]==type) & (~df[col_id].apply(check_insee_field))]])
             df = df[(((df[col_type]==type) & (df[col_id].apply(check_insee_field))) | (df[col_type]!=type))]
         dfb = populate_error(dfb,f"Numéro {type} erroné pour le champ {col}")
-
     return df, dfb
 
 
@@ -1190,52 +1263,59 @@ def mark_mandatory_field(df: pd.DataFrame,field_name:str) -> pd.DataFrame:
     "manquant".
     """
     if field_name in df.columns:
-        empty_mandatory = ~pd.notna(df[field_name]) | pd.isnull(df[field_name])
+        empty_mandatory = ~pd.notna(df[field_name]) | pd.isnull(df[field_name]) \
+         | (df[field_name]=='<NA>') | (df[field_name]=='nan')
         if not empty_mandatory.empty:
             df[field_name] = df[field_name].astype('str')
             df.loc[empty_mandatory,field_name] = 'MQ'  
     return df
 
-# def mark_particular_field(df:pd.DataFrame, field_name:str) -> pd.DataFrame:
-#     """
-#     Cas particulier pour le code CPV. Selon la valeur du codeCPV, 
-#     les champs "origineUE" et "origineFrance" sont tagués par "MQ"
-#     """
-#     # Transformation de la colonne CPV      
-#     df_cpv = pd.read_excel("data/cpv.xls", engine="xlrd")
-#     df_cpv['CODE'] = df_cpv['CODE'].astype(str).str.replace("-", ".")  #On souhaite  réaliser ue conversion numérique. Donc 
-#                                                                        #on remplace les "-" par les points.
-#     df_cpv['CODE'] = pd.to_numeric(df_cpv['CODE'], errors='coerce')
+def mark_mixed_field(df:pd.DataFrame, field_name:str) -> pd.DataFrame:
+    """
+    Fonction traitant un cas particulier pour les champs "orgineUE"
+    et "orgineFrance". Selon la valeur du codeCPV, ces deux
+    champs sont obligatoires. Donc ils doivent être tagués par "MQ".    
+    """
+    # Transformation de la colonne CPV      
+    df_cpv = pd.read_excel("data/cpv_2008_fr.xls", engine="xlrd")
+    df_cpv['CODE'] = df_cpv['CODE'].astype(str).str.replace("-", ".")  #On souhaite  réaliser ue conversion numérique. Donc 
+                                                                       #on remplace les "-" par les points.
+    df_cpv['CODE'] = pd.to_numeric(df_cpv['CODE'], errors='coerce')
 
-#     #Liste des intervalles de codes 
-#     codes_obligatoires = [
-#     (15100000.9, 15982200.7),
-#     (34100000.8, 34144910.0),
-#     (34510000.5, 34522700.9),
-#     (34600000.3, 34622500.8),
-#     (34710000.7, 34722200.6),
-#     (33100000.1, 33198200.6),
-#     (33600000.6, 33698300.2),
-#     (18100000.0, 18453000.9),
-#     (18800000.7, 18843000.0)
-#     ]
+    #Liste des intervalles de codes 
+    codes_obligatoires = [
+    (15100000.9, 15982200.7),
+    (34100000.8, 34144910.0),
+    (34510000.5, 34522700.9),
+    (34600000.3, 34622500.8),
+    (34710000.7, 34722200.6),
+    (33100000.1, 33198200.6),
+    (33600000.6, 33698300.2),
+    (18100000.0, 18453000.9),
+    (18800000.7, 18843000.0)
+    ]
 
-#     #Nous utiliserons cette variable pour le masque pour chacun des intervalles
-#     masque_codes_obligatoires = pd.Series([False] * len(df_cpv))
+    #Nous utiliserons cette variable pour le masque pour chacun des intervalles
+    masque_codes_obligatoires = pd.Series([False] * len(df_cpv))
 
-#     #Mise à jour du masque
-#     for debut, fin in codes_obligatoires:
-#         masque_intervalle = (df_cpv['CODE'] >= debut) & (df_cpv['CODE'] <= fin)
-#         masque_codes_obligatoires = masque_codes_obligatoires | masque_intervalle  #ou inclusif
+    #Mise à jour du masque
+    for debut, fin in codes_obligatoires:
+        masque_intervalle = (df_cpv['CODE'] >= debut) & (df_cpv['CODE'] <= fin)
+        masque_codes_obligatoires = masque_codes_obligatoires | masque_intervalle  #OU inclusif
 
-#     df_codes_obligatoires = df_cpv[masque_codes_obligatoires]
-#     print(df_codes_obligatoires['CODE'].tolist())
+    #Obtention de du dataframe ayant les codes CPV où les champs "orgineFrance" et "origineUE" sont obligatoires
+    df_codes_obligatoires = df_cpv[masque_codes_obligatoires]
+    df_codes_obligatoires = df_codes_obligatoires['CODE'].astype(str).str.replace(".", "-")
+    #print(df_codes_obligatoires['CODE'].tolist())
 
-#     #Selon cette liste, nous allons marquer les colonnes "orgineFrance" et "origineUE"
-#     masque = df[:,'codeCPV'].isin(df_codes_obligatoires['CODE'].tolist())
-#     masque2 = df[:,'origineUE','origineFrance'].isin(df_codes_obligatoires['CODE'].tolist())
-#     df[:,['origineUE','origineFrance']] = df[masque].
-
+    #Selon la liste, nous allons marquer les colonnes "orgineFrance" et "origineUE" par le tag "MQ"
+    mandatory_code = df['codeCPV'].isin(df_codes_obligatoires.tolist())
+    empty_mixed  = (~pd.notna(df[field_name]) | pd.isnull(df[field_name]) | (df[field_name]=='') | \
+                    (df[field_name]=='nan')) & mandatory_code
+    if not empty_mixed.empty: 
+        df.loc[empty_mixed,field_name] = 'MQ'
+    df[field_name] = df[field_name].astype(str)
+    return df
 
 def mark_optional_field(df: pd.DataFrame,field_name:str) -> pd.DataFrame:
     """
@@ -1245,7 +1325,8 @@ def mark_optional_field(df: pd.DataFrame,field_name:str) -> pd.DataFrame:
     "conditionnelle".
     """
     if field_name in df.columns:
-        empty_optional  = ~pd.notna(df[field_name]) | pd.isnull(df[field_name]) | (df[field_name]=='') | (df[field_name]=='nan')
+        empty_optional  = ~pd.notna(df[field_name]) | pd.isnull(df[field_name]) | \
+         (df[field_name]=='') | (df[field_name]=='<NA>') | (df[field_name]=='nan')
         if not empty_optional.empty:
             df[field_name] = df[field_name].astype('str')
             df.loc[empty_optional,field_name] = 'CDL'
@@ -1328,6 +1409,7 @@ def mark_bad_format_float_field(df: pd.DataFrame,field_name:str,pattern:str = r'
     return df
 
 def check_insee_field(number):
+    number = str(number)
     if not pd.isna(number): 
         number = clean(number, ' .').strip()
         if not number.isdigit():
@@ -1396,6 +1478,10 @@ def marche_mark_fields(df: pd.DataFrame) -> pd.DataFrame:
     df = mark_mandatory_field(df,"titulaire_id_1")
     df = mark_mandatory_field(df,"titulaire_typeIdentifiant_1")
     
+    #Mixed fields particualr case
+    df = mark_mixed_field(df,"origineUE")
+    df = mark_mixed_field(df,"origineFrance")
+
     # Optional fields
     df = mark_optional_field(df,"titulaire_id_2")
     df = mark_optional_field(df,"titulaire_typeIdentifiant_2")
@@ -1407,6 +1493,7 @@ def marche_mark_fields(df: pd.DataFrame) -> pd.DataFrame:
     df = mark_optional_field(df,"sousTraitanceDeclaree")
     df = mark_optional_field(df,"origineUE")
     df = mark_optional_field(df,"origineFrance")
+
     # Actes sous traitance
     df = mark_optional_field(df,"idActeSousTraitance")
     df = mark_optional_field(df,"dureeMoisActeSousTraitance")
