@@ -18,3 +18,4 @@ saagieapi
 pytest
 argparse 
 python-stdnum
+xlrd
