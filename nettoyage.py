@@ -59,7 +59,7 @@ def main(data_format:str = '2022'):
     logger.info("Format utilisé " + data_format)
 
     #json_source = 'decp_'+data_format +'.json'
-    json_source = f"../Decp_rama/results/decp_daily.json"
+    json_source = f"../Decp_rama/results/decp-daily.json"
     #if not os.path.isfile("data/decpv2.json"):
     #    print("Load file from S3 repositary")
     if not args.local:
@@ -83,7 +83,7 @@ def main(data_format:str = '2022'):
     date = maintenant.strftime("%Y-%m-%d")
     files_to_upload = [(f"{date}-marche-2022.csv","decp/2022/marches-valides"),(f"{date}-concession-2022.csv","decp/2022/concessions-valides"),(f"{date}-marche-exclu-2022.csv","decp/2022/marches-invalides"),(f"{date}-concession-exclu-2022.csv","decp/2022/concessions-invalides")]
     for f in files_to_upload :
-        #up.upload_dataeco(f[0],f[1])
+        up.upload_dataeco(f[0],f[1])
 
  
 
