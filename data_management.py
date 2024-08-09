@@ -21,7 +21,7 @@ url_stockUniteLegale = "https://files.data.gouv.fr/insee-sirene/StockUniteLegale
 #urls = [url_geoflar, url_cpv, url_departement, url_region, url_commune, url_arrondissement, url_stockEtablissement, url_stockUniteLegale]
 urls = ["geoflar", "cpv", "departement", "region", "commune", "arrondissement", "stockEtablissement", "stockUniteLegale"]
 titres = ["geoflar.csv", "cpv_2008_fr.xls", "departement2020.csv", "region2020.csv", "commune2021.csv",
-           "arrondissement2021.csv", "stockEtablissement_utf8.csv", "stockUniteLegale_utf8.csv"]
+           "arrondissement2021.csv", "StockEtablissement_utf8.csv", "StockUniteLegale_utf8.csv"]
 data_path = "data"
 
 
